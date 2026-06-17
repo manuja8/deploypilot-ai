@@ -1,0 +1,32 @@
+
+DEPLOYPILOT AI
+PHASE 1 DATASET SUMMARY
+
+Master Dataset Shape:
+(20000, 31)
+
+PASS/FAIL Distribution:
+result
+FAIL    10000
+PASS    10000
+Name: count, dtype: int64
+
+FAILURE TYPE DISTRIBUTION:
+failure_type
+Configuration Error      1000
+Security Scan Failure    1000
+Dependency Error         1000
+Network Error            1000
+Permission Error         1000
+Resource Exhaustion      1000
+Test Failure             1000
+Deployment Failure       1000
+Build Failure            1000
+Timeout                  1000
+Name: count, dtype: int64
+
+MODEL 1 DATASET SHAPE:
+(20000, 31)
+
+MODEL 2 DATASET SHAPE:
+(10000, 31)
