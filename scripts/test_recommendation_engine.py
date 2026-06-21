@@ -79,3 +79,5 @@ for test_case in test_cases:
     print("Recommendation:", result["recommendation"])
     print("Preventive Advice:", result["preventive_advice"])
     print("Explanation:", result["explanation"])
+
+    #python -m scripts.test_recommendation_engine.py
