@@ -37,6 +37,19 @@ def generate_recommendation(
     preventive_advice = ""
     explanation = ""
 
+    if prediction == "PASS" and risk_score < 0.40:
+        return {
+            "recommendation": (
+                "Pipeline risk is low. The run can continue normally."
+            ),
+            "preventive_advice": (
+                "Continue monitoring warnings and test results in future runs."
+            ),
+            "explanation": (
+                "The failure risk score is low and no failure-specific recommendation is required."
+            )
+        }
+
     failure_recommendations = {
         "Test Failure": {
             "recommendation": (
