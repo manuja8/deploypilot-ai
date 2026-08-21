@@ -15,3 +15,7 @@ lxml
 python-multipart
 jupyter
 ipykernel
+SQLAlchemy
+psycopg[binary]
+PyJWT
+python-dotenv

@@ -9,6 +9,7 @@ class PredictionRequest(BaseModel):
     ci_tool: str = Field(default="GitHub Actions")
     repository: str = Field(default="deploypilot-demo")
     branch: str = Field(default="dev")
+    source: str = Field(default="MANUAL")
 
     commit_size: int = Field(default=0, ge=0)
     files_changed: int = Field(default=0, ge=0)
@@ -46,3 +47,13 @@ class PredictionResponse(BaseModel):
     quality_gate_action: str
     threshold_explanation: str
     cleaned_log_preview: str
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str
+    display_name: str

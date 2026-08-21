@@ -4,7 +4,7 @@ from api.log_preprocessor import clean_log
 from api.model_loader import load_models
 from api.quality_gate import evaluate_quality_gate
 from api.recommendation_engine import generate_recommendation
-from api.storage import save_prediction
+from api.history_repository import HistoryRepository
 
 
 MODEL_1_FEATURES = [
@@ -205,7 +205,7 @@ def classify_failure_type_fallback(cleaned_log, prediction):
     return "None"
 
 
-def make_prediction(request_data):
+def make_prediction(request_data, database):
     """
     Main prediction service used by FastAPI.
     """
@@ -238,9 +238,13 @@ def make_prediction(request_data):
         "ci_tool": request_data.ci_tool,
         "repository": request_data.repository,
         "branch": request_data.branch,
+        "source": request_data.source,
         "commit_size": request_data.commit_size,
         "files_changed": request_data.files_changed,
         "warnings": request_data.warnings,
+        "cpu_usage_pct": request_data.cpu_usage_pct,
+        "memory_usage_mb": request_data.memory_usage_mb,
+        "retry_count": request_data.retry_count,
         "tests_failed": request_data.tests_failed,
         "build_duration_sec": request_data.build_duration_sec,
         "test_duration_sec": request_data.test_duration_sec,
@@ -254,10 +258,17 @@ def make_prediction(request_data):
         "preventive_advice": recommendation_result["preventive_advice"],
         "quality_gate_action": quality_gate_result["action"],
         "threshold_explanation": quality_gate_result["threshold_explanation"],
-        "actual_result": request_data.actual_result
+        "actual_result": request_data.actual_result,
+        "raw_log": request_data.error_log,
+        "cleaned_log": cleaned_log,
     }
 
-    save_prediction(result)
+    history_repository = HistoryRepository(
+    database
+)
+    history_repository.save(
+    result
+)
 
     response = {
         "pipeline_id": result["pipeline_id"],

@@ -1,40 +1,110 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
 
+from api.auth import auth_service, require_user
+from api.database import Base, engine, get_db
+from api.history_repository import HistoryRepository
+from api.models import User
 from api.prediction_service import loaded_models, make_prediction
-from api.schemas import PredictionRequest, PredictionResponse
+from api.schemas import (
+    LoginRequest,
+    LoginResponse,
+    PredictionRequest,
+    PredictionResponse,
+)
+
+
+Base.metadata.create_all(
+    bind=engine
+)
 
 
 app = FastAPI(
     title="DeployPilot AI API",
-    description="CI/CD Pipeline Failure Prediction and Risk Control System",
     version="1.0.0"
 )
 
 
-@app.get("/")
-def root():
-    return {
-        "message": "DeployPilot AI API is running",
-        "docs": "/docs"
-    }
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
 
 
 @app.get("/health")
-def health_check():
+def health():
     return {
-        "status": "healthy",
-        "service": "DeployPilot AI API"
+        "status": "healthy"
     }
+
+
+@app.post(
+    "/auth/login",
+    response_model=LoginResponse
+)
+def login(
+    request: LoginRequest,
+    database: Session = Depends(get_db)
+):
+    user = (
+        database
+        .query(User)
+        .filter(User.email == request.email)
+        .first()
+    )
+
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid email or password."
+        )
+
+    if not auth_service.check_password(
+        request.password,
+        user.password_hash
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid email or password."
+        )
+
+    return {
+        "access_token": auth_service.create_token(user),
+        "token_type": "bearer",
+        "display_name": user.display_name
+    }
+
+
+@app.get("/history")
+def history(
+    database: Session = Depends(get_db),
+    current_user=Depends(require_user)
+):
+    repository = HistoryRepository(
+        database
+    )
+
+    return [
+        item.to_dict()
+        for item in repository.get_all()
+    ]
 
 
 @app.get("/model-status")
 def model_status():
     return {
-        "failure_risk_model_loaded": loaded_models["failure_risk_model_loaded"],
-        "failure_type_classifier_loaded": loaded_models["failure_type_classifier_loaded"],
-        "failure_risk_model_path": loaded_models["failure_risk_model_path"],
-        "failure_type_classifier_path": loaded_models["failure_type_classifier_path"],
-        "note": "If models are not loaded, fallback MVP logic is used."
+        "failure_risk_model_loaded":
+            loaded_models["failure_risk_model_loaded"],
+
+        "failure_type_classifier_loaded":
+            loaded_models["failure_type_classifier_loaded"]
     }
 
 
@@ -42,7 +112,14 @@ def model_status():
     "/predict",
     response_model=PredictionResponse
 )
-def predict(request: PredictionRequest):
-    return make_prediction(request)
+def predict(
+    request: PredictionRequest,
+    database: Session = Depends(get_db),
+    current_user=Depends(require_user)
+):
+    return make_prediction(
+        request,
+        database
+    )
 
 #uvicorn api.main:app --reload
