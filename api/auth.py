@@ -7,13 +7,20 @@ import jwt
 
 from datetime import datetime, timedelta
 
-from fastapi import Depends, HTTPException
+from dotenv import load_dotenv
+from fastapi import Depends, Header, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
 
 
 JWT_SECRET = os.getenv(
     "JWT_SECRET",
     "deploypilot-local-secret"
+)
+
+GITHUB_API_KEY = os.getenv(
+    "GITHUB_API_KEY",
+    "deploypilot-github-local-key"
 )
 
 security = HTTPBearer()
@@ -81,3 +88,17 @@ def require_user(
             status_code=401,
             detail="Invalid or expired login."
         )
+
+def verify_github_key(
+    x_api_key: str = Header(...)
+):
+    if not hmac.compare_digest(
+        x_api_key,
+        GITHUB_API_KEY
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid GitHub API key."
+        )
+
+    return True

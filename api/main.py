@@ -2,7 +2,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
-from api.auth import auth_service, require_user
+from api.auth import auth_service, require_user, verify_github_key
 from api.database import Base, engine, get_db
 from api.history_repository import HistoryRepository
 from api.models import User
@@ -117,6 +117,22 @@ def predict(
     database: Session = Depends(get_db),
     current_user=Depends(require_user)
 ):
+    return make_prediction(
+        request,
+        database
+    )
+
+@app.post(
+    "/github/predict",
+    response_model=PredictionResponse
+)
+def github_predict(
+    request: PredictionRequest,
+    database: Session = Depends(get_db),
+    github_key=Depends(verify_github_key)
+):
+    request.source = "GITHUB_ACTIONS"
+
     return make_prediction(
         request,
         database

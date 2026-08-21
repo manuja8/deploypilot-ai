@@ -94,7 +94,14 @@ function Sidebar() {
           Model Evaluation
         </button>
 
-        <button className="menu-item disabled">
+        <button
+          className={
+            location.pathname === "/github-runs"
+              ? "menu-item active"
+              : "menu-item"
+          }
+          onClick={() => navigate("/github-runs")}
+        >
           <GitBranch size={19} />
           GitHub Runs
         </button>
