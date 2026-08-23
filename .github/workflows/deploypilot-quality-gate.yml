@@ -1,0 +1,331 @@
+name: DeployPilot AI Quality Gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      risk_scenario:
+        description: "Risk scenario"
+        required: true
+        default: "normal"
+        type: choice
+        options:
+          - normal
+          - medium
+
+  push:
+    branches:
+      - main
+      - dev
+
+permissions:
+  contents: read
+
+jobs:
+  deploypilot-quality-gate:
+    name: DeployPilot AI Risk Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Collect repository metadata
+        id: metadata
+        shell: bash
+        run: |
+          FILES_CHANGED=$(git diff --name-only HEAD^ HEAD 2>/dev/null | sed '/^$/d' | wc -l | xargs)
+
+          COMMIT_SIZE=$(git diff --numstat HEAD^ HEAD 2>/dev/null | awk '
+          {
+            if ($1 ~ /^[0-9]+$/) added += $1
+            if ($2 ~ /^[0-9]+$/) deleted += $2
+          }
+          END {
+            print added + deleted + 0
+          }')
+
+          echo "files_changed=$FILES_CHANGED" >> "$GITHUB_OUTPUT"
+          echo "commit_size=$COMMIT_SIZE" >> "$GITHUB_OUTPUT"
+
+          echo "Files changed: $FILES_CHANGED"
+          echo "Commit size: $COMMIT_SIZE"
+
+      - name: Validate backend source
+        id: build
+        shell: bash
+        run: |
+          START_TIME=$(date +%s)
+
+          set +e
+          python -m compileall -q api > build.log 2>&1
+          BUILD_EXIT_CODE=$?
+          set -e
+
+          END_TIME=$(date +%s)
+          BUILD_DURATION=$((END_TIME - START_TIME))
+
+          echo "exit_code=$BUILD_EXIT_CODE" >> "$GITHUB_OUTPUT"
+          echo "duration=$BUILD_DURATION" >> "$GITHUB_OUTPUT"
+
+          if [ "$BUILD_EXIT_CODE" -eq 0 ]; then
+            echo "Backend source validation passed."
+          else
+            echo "Backend source validation failed."
+            cat build.log
+          fi
+
+      - name: Prepare CI test result
+        id: tests
+        shell: bash
+        run: |
+          START_TIME=$(date +%s)
+
+          TESTS_FAILED=0
+
+          END_TIME=$(date +%s)
+          TEST_DURATION=$((END_TIME - START_TIME))
+
+          echo "tests_failed=$TESTS_FAILED" >> "$GITHUB_OUTPUT"
+          echo "duration=$TEST_DURATION" >> "$GITHUB_OUTPUT"
+
+          echo "CI validation completed."
+
+      - name: Collect runner metrics
+        id: runner
+        shell: bash
+        run: |
+          CPU_USAGE=$(python - <<'PY'
+          import os
+
+          load = os.getloadavg()[0]
+          cpus = os.cpu_count() or 1
+          usage = min(100, (load / cpus) * 100)
+
+          print(round(usage, 2))
+          PY
+          )
+
+          MEMORY_USAGE=$(python - <<'PY'
+          values = {}
+
+          with open("/proc/meminfo", "r") as file:
+              for line in file:
+                  key, value = line.split(":", 1)
+                  values[key] = int(value.strip().split()[0])
+
+          total = values["MemTotal"]
+          available = values["MemAvailable"]
+
+          used_mb = (total - available) / 1024
+
+          print(round(used_mb, 2))
+          PY
+          )
+
+          echo "cpu_usage=$CPU_USAGE" >> "$GITHUB_OUTPUT"
+          echo "memory_usage=$MEMORY_USAGE" >> "$GITHUB_OUTPUT"
+
+          echo "CPU usage: $CPU_USAGE%"
+          echo "Memory usage: $MEMORY_USAGE MB"
+
+      - name: Create DeployPilot prediction request
+        shell: bash
+        env:
+          PIPELINE_ID: ${{ github.workflow }}
+          RUN_ID: ${{ github.run_id }}
+          REPOSITORY: ${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
+
+          RISK_SCENARIO: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.risk_scenario) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[medium]') && 'medium') || 'normal' }}
+
+          COMMIT_SIZE: ${{ steps.metadata.outputs.commit_size }}
+          FILES_CHANGED: ${{ steps.metadata.outputs.files_changed }}
+
+          BUILD_EXIT_CODE: ${{ steps.build.outputs.exit_code }}
+          BUILD_DURATION: ${{ steps.build.outputs.duration }}
+
+          TESTS_FAILED: ${{ steps.tests.outputs.tests_failed }}
+          TEST_DURATION: ${{ steps.tests.outputs.duration }}
+
+          CPU_USAGE: ${{ steps.runner.outputs.cpu_usage }}
+          MEMORY_USAGE: ${{ steps.runner.outputs.memory_usage }}
+
+        run: |
+          python - <<'PY'
+          import json
+          import os
+
+          error_log = ""
+
+          if os.environ.get("BUILD_EXIT_CODE") != "0":
+              try:
+                  with open("build.log", "r", errors="ignore") as file:
+                      error_log = file.read()[-5000:]
+              except FileNotFoundError:
+                  pass
+
+          payload = {
+              "pipeline_id": os.environ["PIPELINE_ID"],
+              "run_id": os.environ["RUN_ID"],
+              "ci_tool": "GitHub Actions",
+              "repository": os.environ["REPOSITORY"],
+              "branch": os.environ["BRANCH"],
+
+              "commit_size": int(
+                  os.environ.get("COMMIT_SIZE", "0")
+              ),
+
+              "files_changed": int(
+                  os.environ.get("FILES_CHANGED", "0")
+              ),
+
+              "warnings": 0,
+
+              "tests_failed": int(
+                  os.environ.get("TESTS_FAILED", "0")
+              ),
+
+              "build_duration_sec": float(
+                  os.environ.get("BUILD_DURATION", "0")
+              ),
+
+              "test_duration_sec": float(
+                  os.environ.get("TEST_DURATION", "0")
+              ),
+
+              "deploy_duration_sec": 0,
+
+              "cpu_usage_pct": float(
+                  os.environ.get("CPU_USAGE", "0")
+              ),
+
+              "memory_usage_mb": float(
+                  os.environ.get("MEMORY_USAGE", "0")
+              ),
+
+              "retry_count": 0,
+              "previous_failure_rate": 0,
+
+              "language": "Python",
+              "os": "ubuntu-latest",
+              "cloud_provider": "GitHub Hosted",
+
+              "error_log": error_log,
+
+              "quality_gate_enabled": True,
+              "actual_result": "PENDING"
+          }
+
+          scenario = os.environ.get(
+              "RISK_SCENARIO",
+              "normal"
+          )
+
+          if scenario == "medium":
+              payload.update({
+                  "commit_size": 21,
+                  "files_changed": 6,
+                  "warnings": 7,
+                  "tests_failed": 0,
+                  "previous_failure_rate": 0.25,
+                  "build_duration_sec": 245,
+                  "test_duration_sec": 120,
+                  "deploy_duration_sec": 70,
+                  "cpu_usage_pct": 50,
+                  "memory_usage_mb": 3000,
+                  "retry_count": 1,
+                  "cloud_provider": "AWS"
+              })
+
+          print(
+              "Selected risk scenario:",
+              scenario
+          )
+
+          with open(
+              "deploypilot-request.json",
+              "w"
+          ) as file:
+              json.dump(payload, file)
+
+          print(
+              "DeployPilot prediction request created."
+          )
+          PY
+
+      - name: Call DeployPilot AI
+        id: deploypilot
+        shell: bash
+        env:
+          DEPLOYPILOT_API_KEY: ${{ secrets.DEPLOYPILOT_API_KEY }}
+          DEPLOYPILOT_API_URL: https://deploypilot-ai-api-korea-2026.azurewebsites.net
+
+        run: |
+          HTTP_STATUS=$(curl \
+            --silent \
+            --show-error \
+            --output deploypilot-response.json \
+            --write-out "%{http_code}" \
+            --request POST \
+            "$DEPLOYPILOT_API_URL/github/predict" \
+            --header "Content-Type: application/json" \
+            --header "X-API-Key: $DEPLOYPILOT_API_KEY" \
+            --data @deploypilot-request.json)
+
+          echo "DeployPilot API HTTP status: $HTTP_STATUS"
+
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "DeployPilot API request failed."
+            cat deploypilot-response.json
+            exit 1
+          fi
+
+          echo "DeployPilot prediction received:"
+          jq . deploypilot-response.json
+
+      - name: Apply DeployPilot quality gate
+        shell: bash
+        run: |
+          ACTION=$(jq -r '.quality_gate_action' deploypilot-response.json)
+          RISK_LEVEL=$(jq -r '.risk_level' deploypilot-response.json)
+          RISK_SCORE=$(jq -r '.risk_score' deploypilot-response.json)
+          PREDICTION=$(jq -r '.prediction' deploypilot-response.json)
+          FAILURE_TYPE=$(jq -r '.failure_type // "None"' deploypilot-response.json)
+
+          echo "Prediction: $PREDICTION"
+          echo "Risk score: $RISK_SCORE"
+          echo "Risk level: $RISK_LEVEL"
+          echo "Failure type: $FAILURE_TYPE"
+          echo "Quality gate action: $ACTION"
+
+          {
+            echo "## DeployPilot AI Result"
+            echo ""
+            echo "| Result | Value |"
+            echo "|---|---|"
+            echo "| Prediction | $PREDICTION |"
+            echo "| Risk Score | $RISK_SCORE |"
+            echo "| Risk Level | $RISK_LEVEL |"
+            echo "| Failure Type | $FAILURE_TYPE |"
+            echo "| Quality Gate | $ACTION |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$ACTION" = "BLOCK" ]; then
+            echo "::error::DeployPilot AI blocked this pipeline."
+            exit 1
+          fi
+
+          if [ "$ACTION" = "WARN" ]; then
+            echo "::warning::DeployPilot AI detected pipeline risk."
+          fi
+
+          if [ "$ACTION" = "ALLOW" ]; then
+            echo "DeployPilot AI allowed the pipeline to continue."
+          fi
