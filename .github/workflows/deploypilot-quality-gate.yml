@@ -106,7 +106,6 @@ jobs:
 
           load = os.getloadavg()[0]
           cpus = os.cpu_count() or 1
-
           usage = min(100, (load / cpus) * 100)
 
           print(round(usage, 2))
@@ -136,13 +135,14 @@ jobs:
           echo "CPU usage: $CPU_USAGE%"
           echo "Memory usage: $MEMORY_USAGE MB"
 
-            - name: Create DeployPilot prediction request
+      - name: Create DeployPilot prediction request
         shell: bash
         env:
           PIPELINE_ID: ${{ github.workflow }}
           RUN_ID: ${{ github.run_id }}
           REPOSITORY: ${{ github.repository }}
           BRANCH: ${{ github.ref_name }}
+
           RISK_SCENARIO: ${{ github.event.inputs.risk_scenario || 'normal' }}
 
           COMMIT_SIZE: ${{ steps.metadata.outputs.commit_size }}
@@ -223,7 +223,10 @@ jobs:
               "actual_result": "PENDING"
           }
 
-          scenario = os.environ.get("RISK_SCENARIO", "normal")
+          scenario = os.environ.get(
+              "RISK_SCENARIO",
+              "normal"
+          )
 
           if scenario == "medium":
               payload.update({
@@ -241,12 +244,20 @@ jobs:
                   "cloud_provider": "AWS"
               })
 
-          print("Selected risk scenario:", scenario)
+          print(
+              "Selected risk scenario:",
+              scenario
+          )
 
-          with open("deploypilot-request.json", "w") as file:
+          with open(
+              "deploypilot-request.json",
+              "w"
+          ) as file:
               json.dump(payload, file)
 
-          print("DeployPilot prediction request created.")
+          print(
+              "DeployPilot prediction request created."
+          )
           PY
 
       - name: Call DeployPilot AI
