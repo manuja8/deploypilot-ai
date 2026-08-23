@@ -136,7 +136,7 @@ jobs:
           echo "CPU usage: $CPU_USAGE%"
           echo "Memory usage: $MEMORY_USAGE MB"
 
-      - name: Create DeployPilot prediction request
+            - name: Create DeployPilot prediction request
         shell: bash
         env:
           PIPELINE_ID: ${{ github.workflow }}
@@ -222,7 +222,7 @@ jobs:
               "quality_gate_enabled": True,
               "actual_result": "PENDING"
           }
-              
+
           scenario = os.environ.get("RISK_SCENARIO", "normal")
 
           if scenario == "medium":
@@ -239,11 +239,9 @@ jobs:
                   "memory_usage_mb": 3000,
                   "retry_count": 1,
                   "cloud_provider": "AWS"
-                 })
+              })
 
-            print("Selected risk scenario:", scenario)
-
-
+          print("Selected risk scenario:", scenario)
 
           with open("deploypilot-request.json", "w") as file:
               json.dump(payload, file)
