@@ -143,7 +143,7 @@ jobs:
           REPOSITORY: ${{ github.repository }}
           BRANCH: ${{ github.ref_name }}
 
-          RISK_SCENARIO: ${{ github.event.inputs.risk_scenario || 'normal' }}
+          RISK_SCENARIO: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.risk_scenario) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[medium]') && 'medium') || 'normal' }}
 
           COMMIT_SIZE: ${{ steps.metadata.outputs.commit_size }}
           FILES_CHANGED: ${{ steps.metadata.outputs.files_changed }}
