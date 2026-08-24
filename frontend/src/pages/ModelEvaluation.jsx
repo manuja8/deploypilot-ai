@@ -5,9 +5,11 @@ import api from "../services/api";
 
 function ModelEvaluation() {
   const [modelStatus, setModelStatus] = useState({});
+  const [modelMetrics, setModelMetrics] = useState({});
 
   useEffect(() => {
     loadModelStatus();
+    loadModelMetrics();
   }, []);
 
   const loadModelStatus = async () => {
@@ -19,6 +21,20 @@ function ModelEvaluation() {
       console.error("Model status loading failed:", error);
     }
   };
+
+  const loadModelMetrics = async () => {
+    try {
+      const response = await api.get("/model-metrics");
+
+      setModelMetrics(response.data);
+    } catch (error) {
+      console.error("Model metrics loading failed:", error);
+    }
+  };
+
+  const riskMetrics = modelMetrics.failure_risk_metrics;
+
+  const failureMetrics = modelMetrics.failure_type_metrics;
 
   return (
     <div>
@@ -61,26 +77,38 @@ function ModelEvaluation() {
         </div>
 
         <div className="metrics-row">
-          <MetricBox title="Accuracy" value="Pending" />
+          <MetricBox
+            title="Accuracy"
+            value={formatMetric(riskMetrics?.accuracy)}
+          />
 
-          <MetricBox title="Precision" value="Pending" />
+          <MetricBox
+            title="Precision"
+            value={formatMetric(riskMetrics?.precision)}
+          />
 
-          <MetricBox title="Recall" value="Pending" />
+          <MetricBox title="Recall" value={formatMetric(riskMetrics?.recall)} />
 
-          <MetricBox title="F1 Score" value="Pending" />
+          <MetricBox
+            title="F1 Score"
+            value={formatMetric(riskMetrics?.f1_score)}
+          />
 
-          <MetricBox title="ROC-AUC" value="Pending" />
+          <MetricBox
+            title="ROC-AUC"
+            value={formatMetric(riskMetrics?.roc_auc)}
+          />
         </div>
 
         <div className="model-note">
-          <Clock size={18} />
+          <CheckCircle2 size={18} />
 
           <div>
-            <strong>Model training is still pending</strong>
+            <strong>Model training completed</strong>
 
             <p>
-              These values will be replaced with real evaluation results after
-              the Failure Risk Model is trained.
+              Final selected model: {riskMetrics?.model_name || "Random Forest"}
+              . These are the real evaluation results from the trained model.
             </p>
           </div>
         </div>
@@ -89,29 +117,49 @@ function ModelEvaluation() {
       <section className="content-card model-section">
         <div className="card-heading">
           <div>
-            <h2>Model 2 Evaluation</h2>
+            <h2>Model 2 Evaluation Metrics</h2>
 
             <p>Log Failure Type Classification Model</p>
           </div>
         </div>
 
         <div className="metrics-row">
-          <MetricBox title="Macro F1" value="Pending" />
+          <MetricBox
+            title="Accuracy"
+            value={formatMetric(failureMetrics?.accuracy)}
+          />
 
-          <MetricBox title="Weighted F1" value="Pending" />
+          <MetricBox
+            title="Precision"
+            value={formatMetric(failureMetrics?.precision_macro)}
+          />
 
-          <MetricBox title="Classes" value="10" />
+          <MetricBox
+            title="Recall"
+            value={formatMetric(failureMetrics?.recall_macro)}
+          />
+
+          <MetricBox
+            title="Macro F1"
+            value={formatMetric(failureMetrics?.macro_f1)}
+          />
+
+          <MetricBox
+            title="Weighted F1"
+            value={formatMetric(failureMetrics?.weighted_f1)}
+          />
         </div>
 
         <div className="model-note">
           <Brain size={18} />
 
           <div>
-            <strong>Regex preprocessing will be applied before TF-IDF</strong>
+            <strong>Regex preprocessing is applied before TF-IDF</strong>
 
             <p>
-              This directly addresses the lecturer's recommendation about noisy
-              CI/CD logs.
+              Final selected model:{" "}
+              {failureMetrics?.model_name || "Logistic Regression"}. The
+              classifier predicts 10 CI/CD failure categories.
             </p>
           </div>
         </div>
@@ -142,17 +190,30 @@ function ModelEvaluation() {
 
           <MetricExplanation
             name="F1 Score"
-            text="Balances precision and recall. It helps evaluate whether the quality gate detects risky builds without unnecessarily blocking safe builds."
+            text="Balances precision and recall. It helps evaluate whether risky runs can be detected without unnecessarily blocking safe runs."
           />
 
           <MetricExplanation
             name="ROC-AUC"
-            text="Shows how well Model 1 separates high-risk and low-risk pipeline runs."
+            text="Shows how well the failure risk model separates PASS and FAIL pipeline runs."
+          />
+
+          <MetricExplanation
+            name="Macro F1"
+            text="Gives equal importance to each failure category when evaluating the failure type classifier."
           />
         </div>
       </section>
     </div>
   );
+}
+
+function formatMetric(value) {
+  if (value === undefined || value === null) {
+    return "Pending";
+  }
+
+  return `${(value * 100).toFixed(2)}%`;
 }
 
 function ModelCard({ title, algorithm, purpose, loaded }) {
@@ -191,6 +252,7 @@ function MetricBox({ title, value }) {
   return (
     <div className="metric-box">
       <span>{title}</span>
+
       <strong>{value}</strong>
     </div>
   );

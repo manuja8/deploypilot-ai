@@ -1,0 +1,8 @@
+{
+    "model_name": "Random Forest v4",
+    "accuracy": 0.936,
+    "precision": 0.9409545654979348,
+    "recall": 0.936,
+    "f1_score": 0.935819717586701,
+    "roc_auc": 0.9851805
+}

@@ -14,6 +14,11 @@ function AppLayout() {
         <main className="page-content">
           <Outlet />
         </main>
+
+        <footer className="app-footer">
+          © 2026 DeployPilot AI. CI/CD Pipeline Failure Prediction and Risk
+          Control System.
+        </footer>
       </div>
     </div>
   );

@@ -1,0 +1,9 @@
+{
+    "model_name": "Logistic Regression v5",
+    "accuracy": 0.9725,
+    "precision_macro": 0.9742162662197659,
+    "recall_macro": 0.9724999999999999,
+    "macro_f1": 0.9727466672012858,
+    "weighted_f1": 0.9727466672012859,
+    "classes": 10
+}

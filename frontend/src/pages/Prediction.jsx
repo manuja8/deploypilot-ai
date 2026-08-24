@@ -5,36 +5,67 @@ import api from "../services/api";
 
 function Prediction() {
   const [formData, setFormData] = useState({
-    pipeline_id: "manual_001",
-    run_id: "run_001",
+    pipeline_id: "model_2_validation",
+    run_id: "validation_001",
     source: "MANUAL",
     ci_tool: "GitHub Actions",
     repository: "deploypilot-demo",
     branch: "main",
 
-    commit_size: 40,
-    files_changed: 12,
-    warnings: 5,
-    tests_failed: 3,
+    commit_size: 68,
+    files_changed: 22,
+    warnings: 15,
+    tests_failed: 0,
 
-    build_duration_sec: 400,
-    test_duration_sec: 240,
+    build_duration_sec: 1713,
+    test_duration_sec: 922,
     deploy_duration_sec: 0,
 
-    cpu_usage_pct: 75,
-    memory_usage_mb: 3200,
-    retry_count: 1,
-    previous_failure_rate: 0.4,
+    cpu_usage_pct: 47.3,
+    memory_usage_mb: 23788,
+    retry_count: 3,
+    previous_failure_rate: 0.861,
 
     language: "Python",
     os: "ubuntu-latest",
     cloud_provider: "GitHub Hosted",
 
-    error_log: "AssertionError expected 200 got 500",
+    error_log: "",
 
     quality_gate_enabled: true,
-    actual_result: "",
+    actual_result: "FAIL",
   });
+  // const [formData, setFormData] = useState({
+  //   pipeline_id: "manual_001",
+  //   run_id: "run_001",
+  //   source: "MANUAL",
+  //   ci_tool: "GitHub Actions",
+  //   repository: "deploypilot-demo",
+  //   branch: "main",
+
+  //   commit_size: 40,
+  //   files_changed: 12,
+  //   warnings: 5,
+  //   tests_failed: 3,
+
+  //   build_duration_sec: 400,
+  //   test_duration_sec: 240,
+  //   deploy_duration_sec: 0,
+
+  //   cpu_usage_pct: 75,
+  //   memory_usage_mb: 3200,
+  //   retry_count: 1,
+  //   previous_failure_rate: 0.4,
+
+  //   language: "Python",
+  //   os: "ubuntu-latest",
+  //   cloud_provider: "GitHub Hosted",
+
+  //   error_log: "AssertionError expected 200 got 500",
+
+  //   quality_gate_enabled: true,
+  //   actual_result: "",
+  // });
 
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");

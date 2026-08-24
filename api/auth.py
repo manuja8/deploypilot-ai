@@ -12,6 +12,7 @@ from fastapi import Depends, Header, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 
+load_dotenv()
 
 JWT_SECRET = os.getenv(
     "JWT_SECRET",
@@ -60,6 +61,7 @@ class AuthService:
             "user_id": user.id,
             "email": user.email,
             "name": user.display_name,
+            "role": user.role,
             "exp": datetime.utcnow() + timedelta(hours=8)
         }
 
@@ -88,6 +90,17 @@ def require_user(
             status_code=401,
             detail="Invalid or expired login."
         )
+
+
+def require_admin(current_user=Depends(require_user)):
+    if current_user.get("role") != "ADMIN":
+        raise HTTPException(
+            status_code=403,
+            detail="Administrator access is required."
+        )
+
+    return current_user
+
 
 def verify_github_key(
     x_api_key: str = Header(...)

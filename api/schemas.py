@@ -1,4 +1,5 @@
-from typing import Optional
+from datetime import datetime
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -48,6 +49,7 @@ class PredictionResponse(BaseModel):
     threshold_explanation: str
     cleaned_log_preview: str
 
+
 class LoginRequest(BaseModel):
     email: str
     password: str
@@ -57,3 +59,27 @@ class LoginResponse(BaseModel):
     access_token: str
     token_type: str
     display_name: str
+    role: str
+
+
+class AdminUserCreate(BaseModel):
+    display_name: str = Field(min_length=2, max_length=100)
+    email: str = Field(min_length=3, max_length=150)
+    password: str = Field(min_length=8, max_length=128)
+    role: Literal["ADMIN", "USER"] = "USER"
+
+
+class AdminUserUpdate(BaseModel):
+    display_name: Optional[str] = Field(default=None, min_length=2, max_length=100)
+    email: Optional[str] = Field(default=None, min_length=3, max_length=150)
+    password: Optional[str] = Field(default=None, min_length=8, max_length=128)
+    role: Optional[Literal["ADMIN", "USER"]] = None
+
+
+class AdminUserResponse(BaseModel):
+    id: int
+    display_name: str
+    email: str
+    role: str
+    is_active: bool
+    created_at: datetime

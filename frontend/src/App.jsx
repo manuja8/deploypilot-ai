@@ -10,6 +10,7 @@ import History from "./pages/History";
 import Analytics from "./pages/Analytics";
 import ModelEvaluation from "./pages/ModelEvaluation";
 import GitHubRuns from "./pages/GitHubRuns";
+import UserManagement from "./pages/UserManagement";
 
 import "./styles.css";
 
@@ -32,6 +33,14 @@ function App() {
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/models" element={<ModelEvaluation />} />
           <Route path="/github-runs" element={<GitHubRuns />} />
+          <Route
+            path="/users"
+            element={
+              <ProtectedRoute requiredRole="ADMIN">
+                <UserManagement />
+              </ProtectedRoute>
+            }
+          />
         </Route>
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

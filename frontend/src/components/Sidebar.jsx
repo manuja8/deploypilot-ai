@@ -6,6 +6,7 @@ import {
   History,
   LogOut,
   Rocket,
+  Users,
   WandSparkles,
 } from "lucide-react";
 
@@ -14,13 +15,19 @@ import { useLocation, useNavigate } from "react-router-dom";
 function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const role = localStorage.getItem("role") || "USER";
+  const isAdmin = role === "ADMIN";
 
   const logout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("displayName");
+    localStorage.removeItem("role");
 
     navigate("/login");
   };
+
+  const menuClass = (path) =>
+    location.pathname === path ? "menu-item active" : "menu-item";
 
   return (
     <aside className="sidebar">
@@ -38,74 +45,49 @@ function Sidebar() {
       <p className="menu-title">WORKSPACE</p>
 
       <nav className="sidebar-menu">
-        <button
-          className={
-            location.pathname === "/dashboard"
-              ? "menu-item active"
-              : "menu-item"
-          }
-          onClick={() => navigate("/dashboard")}
-        >
+        <button className={menuClass("/dashboard")} onClick={() => navigate("/dashboard")}>
           <Gauge size={19} />
           Dashboard
         </button>
 
-        <button
-          className={
-            location.pathname === "/prediction"
-              ? "menu-item active"
-              : "menu-item"
-          }
-          onClick={() => navigate("/prediction")}
-        >
+        <button className={menuClass("/prediction")} onClick={() => navigate("/prediction")}>
           <WandSparkles size={19} />
           Prediction
         </button>
 
-        <button
-          className={
-            location.pathname === "/history" ? "menu-item active" : "menu-item"
-          }
-          onClick={() => navigate("/history")}
-        >
+        <button className={menuClass("/history")} onClick={() => navigate("/history")}>
           <History size={19} />
           Pipeline History
         </button>
 
-        <button
-          className={
-            location.pathname === "/analytics"
-              ? "menu-item active"
-              : "menu-item"
-          }
-          onClick={() => navigate("/analytics")}
-        >
+        <button className={menuClass("/analytics")} onClick={() => navigate("/analytics")}>
           <BarChart3 size={19} />
           Analytics
         </button>
 
-        <button
-          className={
-            location.pathname === "/models" ? "menu-item active" : "menu-item"
-          }
-          onClick={() => navigate("/models")}
-        >
+        <button className={menuClass("/models")} onClick={() => navigate("/models")}>
           <Brain size={19} />
           Model Evaluation
         </button>
 
-        <button
-          className={
-            location.pathname === "/github-runs"
-              ? "menu-item active"
-              : "menu-item"
-          }
-          onClick={() => navigate("/github-runs")}
-        >
+        <button className={menuClass("/github-runs")} onClick={() => navigate("/github-runs")}>
           <GitBranch size={19} />
           GitHub Runs
         </button>
       </nav>
+
+      {isAdmin && (
+        <>
+          <p className="menu-title admin-menu-title">ADMINISTRATION</p>
+
+          <nav className="sidebar-menu">
+            <button className={menuClass("/users")} onClick={() => navigate("/users")}>
+              <Users size={19} />
+              User Management
+            </button>
+          </nav>
+        </>
+      )}
 
       <div className="sidebar-bottom">
         <button className="menu-item logout-item" onClick={logout}>
