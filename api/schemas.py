@@ -48,6 +48,10 @@ class PredictionResponse(BaseModel):
     quality_gate_action: str
     threshold_explanation: str
     cleaned_log_preview: str
+    gate_mode: str
+    cold_start: bool
+    meaningful_history_runs: int
+    previous_failure_rate_used: float
 
 
 class LoginRequest(BaseModel):

@@ -1,39 +1,37 @@
-# Python cache
+# Python
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
-*.pyc
-
-# Virtual environment
 venv/
-.env
-.env.*
-
-# Jupyter
-.ipynb_checkpoints/
-
-# VS Code
-.vscode/
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
-
-# Pytest cache
 .pytest_cache/
 .coverage
 htmlcov/
 
-# Streamlit secrets
-.streamlit/secrets.toml
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
 
-# Temporary files
+# Local database/history
+data/*.db
+data/*.csv
+
+# Deployment archives
+deployments/
+azure_deploy*/
+*.zip
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs / temporary files
+*.log
 tmp/
 temp/
-
-# Backup files
 *.bak

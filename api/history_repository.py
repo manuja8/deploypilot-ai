@@ -19,9 +19,7 @@ class HistoryRepository:
             if key in allowed_fields
         }
 
-        history_item = PredictionHistory(
-            **clean_data
-        )
+        history_item = PredictionHistory(**clean_data)
 
         self.database.add(history_item)
         self.database.commit()
@@ -36,3 +34,83 @@ class HistoryRepository:
             .order_by(PredictionHistory.id.desc())
             .all()
         )
+
+    def get_meaningful_repository_history(
+        self,
+        repository,
+        limit=10,
+        exclude_run_id=None,
+    ):
+        """
+        Return previous real GitHub CI runs for one repository.
+
+        A meaningful run must:
+        - come from the GitHub Actions integration; and
+        - report an actual CI result of PASS or FAIL.
+
+        DeployPilot's own ALLOW/WARN/BLOCK decision is deliberately not
+        used to decide whether the historical run itself failed.
+        """
+
+        if not repository:
+            return []
+
+        query = (
+            self.database
+            .query(PredictionHistory)
+            .filter(PredictionHistory.repository == repository)
+            .filter(PredictionHistory.source == "GITHUB_ACTIONS")
+            .filter(PredictionHistory.actual_result.in_(["PASS", "FAIL"]))
+        )
+
+        if exclude_run_id:
+            query = query.filter(PredictionHistory.run_id != exclude_run_id)
+
+        return (
+            query
+            .order_by(PredictionHistory.id.desc())
+            .limit(limit)
+            .all()
+        )
+
+    def get_repository_history_summary(
+        self,
+        repository,
+        minimum_runs=3,
+        limit=10,
+        exclude_run_id=None,
+    ):
+        """
+        Calculate the repository-specific historical failure rate.
+
+        Fewer than ``minimum_runs`` previous meaningful runs are treated as
+        cold start. During cold start the model receives a neutral historical
+        failure-rate value of 0.0 and the ML quality gate operates in advisory
+        mode. The other Model 1 features are still evaluated normally.
+        """
+
+        runs = self.get_meaningful_repository_history(
+            repository=repository,
+            limit=limit,
+            exclude_run_id=exclude_run_id,
+        )
+
+        run_count = len(runs)
+        cold_start = run_count < minimum_runs
+
+        if cold_start:
+            failure_rate = 0.0
+        else:
+            failures = sum(
+                1
+                for run in runs
+                if str(run.actual_result).upper() == "FAIL"
+            )
+            failure_rate = round(failures / run_count, 3)
+
+        return {
+            "meaningful_history_runs": run_count,
+            "minimum_history_runs": minimum_runs,
+            "cold_start": cold_start,
+            "previous_failure_rate": failure_rate,
+        }

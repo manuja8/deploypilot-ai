@@ -5,14 +5,12 @@ def generate_recommendation(
     raw_log="",
     cleaned_log="",
     tests_failed=0,
-    warnings=0
+    warnings=0,
+    actual_result="",
 ):
     """
-    Generate practical CI/CD recommendations based on risk score,
-    model prediction, failure type, logs, failed tests, and warnings.
-
-    This is a rule-based recommendation engine.
-    It is not a machine learning model.
+    Generate practical CI/CD recommendations based on the risk prediction,
+    actual CI result, classified failure type, logs, failed tests and warnings.
     """
 
     try:
@@ -32,10 +30,49 @@ def generate_recommendation(
 
     prediction = str(prediction).upper() if prediction else "UNKNOWN"
     failure_type = str(failure_type).strip() if failure_type else "Unknown"
+    actual_result = str(actual_result or "").strip().upper()
 
-    recommendation = ""
-    preventive_advice = ""
-    explanation = ""
+
+    if actual_result == "PASS":
+        if risk_score < 0.40:
+            return {
+                "recommendation": (
+                    "Pipeline risk is low. The run can continue normally."
+                ),
+                "preventive_advice": (
+                    "Continue monitoring warnings, tests, and repository history in future runs."
+                ),
+                "explanation": (
+                    "The real CI run passed and the predicted failure risk is low."
+                ),
+            }
+
+        if risk_score < 0.70:
+            return {
+                "recommendation": (
+                    "The CI run passed, but DeployPilot detected medium deployment risk. "
+                    "Review the size of the change, code-quality warnings, and recent pipeline history before production promotion."
+                ),
+                "preventive_advice": (
+                    "Resolve avoidable warnings, keep changes smaller where practical, and confirm tests and staging checks before release."
+                ),
+                "explanation": (
+                    "The pipeline completed successfully, but Model 1 estimated a medium probability of failure."
+                ),
+            }
+
+        return {
+            "recommendation": (
+                "The CI run passed, but DeployPilot detected high predictive risk. "
+                "Perform a manual review before production promotion."
+            ),
+            "preventive_advice": (
+                "Review changed files, warnings, resource usage, durations, and recent repository history before continuing."
+            ),
+            "explanation": (
+                "The pipeline completed successfully, but Model 1 estimated high failure risk."
+            ),
+        }
 
     if prediction == "PASS" and risk_score < 0.40:
         return {
@@ -47,7 +84,7 @@ def generate_recommendation(
             ),
             "explanation": (
                 "The failure risk score is low and no failure-specific recommendation is required."
-            )
+            ),
         }
 
     failure_recommendations = {
@@ -60,7 +97,7 @@ def generate_recommendation(
             ),
             "explanation": (
                 "The log or prediction indicates that one or more automated tests failed."
-            )
+            ),
         },
         "Dependency Error": {
             "recommendation": (
@@ -71,7 +108,7 @@ def generate_recommendation(
             ),
             "explanation": (
                 "The failure appears related to missing, incompatible, or conflicting dependencies."
-            )
+            ),
         },
         "Build Failure": {
             "recommendation": (
@@ -82,7 +119,7 @@ def generate_recommendation(
             ),
             "explanation": (
                 "The pipeline failed during the build stage or while generating build artifacts."
-            )
+            ),
         },
         "Deployment Failure": {
             "recommendation": (
@@ -93,7 +130,7 @@ def generate_recommendation(
             ),
             "explanation": (
                 "The failure appears related to deployment or release execution."
-            )
+            ),
         },
         "Configuration Error": {
             "recommendation": (
@@ -104,7 +141,7 @@ def generate_recommendation(
             ),
             "explanation": (
                 "The pipeline appears to have failed because of invalid or missing configuration."
-            )
+            ),
         },
         "Permission Error": {
             "recommendation": (
@@ -115,7 +152,7 @@ def generate_recommendation(
             ),
             "explanation": (
                 "The log indicates that the pipeline does not have enough permission to complete an action."
-            )
+            ),
         },
         "Network Error": {
             "recommendation": (
@@ -126,7 +163,7 @@ def generate_recommendation(
             ),
             "explanation": (
                 "The failure appears related to connectivity, DNS, or external service access."
-            )
+            ),
         },
         "Security Scan Failure": {
             "recommendation": (
@@ -137,7 +174,7 @@ def generate_recommendation(
             ),
             "explanation": (
                 "The pipeline was flagged by a security or vulnerability scanning step."
-            )
+            ),
         },
         "Resource Exhaustion": {
             "recommendation": (
@@ -148,7 +185,7 @@ def generate_recommendation(
             ),
             "explanation": (
                 "The pipeline likely failed because the runner did not have enough resources."
-            )
+            ),
         },
         "Timeout": {
             "recommendation": (
@@ -159,7 +196,7 @@ def generate_recommendation(
             ),
             "explanation": (
                 "The pipeline appears to have exceeded the allowed execution time."
-            )
+            ),
         },
         "Unknown": {
             "recommendation": (
@@ -170,13 +207,13 @@ def generate_recommendation(
             ),
             "explanation": (
                 "The failure type is unknown, so the system provides general debugging guidance."
-            )
-        }
+            ),
+        },
     }
 
     selected = failure_recommendations.get(
         failure_type,
-        failure_recommendations["Unknown"]
+        failure_recommendations["Unknown"],
     )
 
     recommendation = selected["recommendation"]
@@ -216,16 +253,11 @@ def generate_recommendation(
     return {
         "recommendation": recommendation,
         "preventive_advice": preventive_advice,
-        "explanation": explanation
+        "explanation": explanation,
     }
 
 
 def _get_keyword_based_advice(cleaned_log):
-    """
-    Add extra recommendation hints using important keywords
-    from the cleaned CI/CD log.
-    """
-
     cleaned_log = cleaned_log.lower()
 
     if "modulenotfounderror" in cleaned_log or "no module named" in cleaned_log:

@@ -35,37 +35,6 @@ function Prediction() {
     quality_gate_enabled: true,
     actual_result: "FAIL",
   });
-  // const [formData, setFormData] = useState({
-  //   pipeline_id: "manual_001",
-  //   run_id: "run_001",
-  //   source: "MANUAL",
-  //   ci_tool: "GitHub Actions",
-  //   repository: "deploypilot-demo",
-  //   branch: "main",
-
-  //   commit_size: 40,
-  //   files_changed: 12,
-  //   warnings: 5,
-  //   tests_failed: 3,
-
-  //   build_duration_sec: 400,
-  //   test_duration_sec: 240,
-  //   deploy_duration_sec: 0,
-
-  //   cpu_usage_pct: 75,
-  //   memory_usage_mb: 3200,
-  //   retry_count: 1,
-  //   previous_failure_rate: 0.4,
-
-  //   language: "Python",
-  //   os: "ubuntu-latest",
-  //   cloud_provider: "GitHub Hosted",
-
-  //   error_log: "AssertionError expected 200 got 500",
-
-  //   quality_gate_enabled: true,
-  //   actual_result: "",
-  // });
 
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");

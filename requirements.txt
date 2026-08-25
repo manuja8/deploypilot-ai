@@ -7,12 +7,7 @@ seaborn
 fastapi
 uvicorn
 pydantic
-streamlit
-plotly
-requests
 pytest
-lxml
-python-multipart
 jupyter
 ipykernel
 SQLAlchemy

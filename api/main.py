@@ -12,7 +12,13 @@ from api.auth import (
     require_user,
     verify_github_key,
 )
-from api.database import Base, engine, ensure_user_role_schema, get_db
+from api.database import (
+    Base,
+    engine,
+    ensure_prediction_history_gate_schema,
+    ensure_user_role_schema,
+    get_db,
+)
 from api.history_repository import HistoryRepository
 from api.models import User
 from api.prediction_service import loaded_models, make_prediction
@@ -31,6 +37,7 @@ Base.metadata.create_all(
     bind=engine
 )
 ensure_user_role_schema()
+ensure_prediction_history_gate_schema()
 
 
 app = FastAPI(
@@ -382,6 +389,3 @@ def model_metrics():
         "failure_type_metrics":
             failure_type_metrics
     }
-
-
-# uvicorn api.main:app --reload

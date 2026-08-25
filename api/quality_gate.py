@@ -1,4 +1,8 @@
-def evaluate_quality_gate(risk_score, quality_gate_enabled=True):
+def evaluate_quality_gate(
+    risk_score,
+    quality_gate_enabled=True,
+    advisory_reason="",
+):
     """
     Evaluate the CI/CD quality gate decision using the failure risk score.
 
@@ -10,8 +14,8 @@ def evaluate_quality_gate(risk_score, quality_gate_enabled=True):
     Actions:
     LOW    -> ALLOW
     MEDIUM -> WARN
-    HIGH   -> BLOCK when quality gate is enabled
-    HIGH   -> WARN when quality gate is disabled
+    HIGH   -> BLOCK when the gate is enforcing
+    HIGH   -> WARN when the gate is advisory/disabled
     """
 
     try:
@@ -19,12 +23,7 @@ def evaluate_quality_gate(risk_score, quality_gate_enabled=True):
     except (TypeError, ValueError):
         risk_score = 0.0
 
-    # Keep risk score safely between 0 and 1
-    if risk_score < 0:
-        risk_score = 0.0
-
-    if risk_score > 1:
-        risk_score = 1.0
+    risk_score = max(0.0, min(risk_score, 1.0))
 
     if risk_score <= 0.39:
         risk_level = "LOW"
@@ -53,15 +52,23 @@ def evaluate_quality_gate(risk_score, quality_gate_enabled=True):
             )
         else:
             action = "WARN"
-            threshold_explanation = (
-                "Risk score is between 0.70 and 1.00. "
-                "The pipeline is considered high risk, but the quality gate is disabled, so only a warning is given."
-            )
+
+            if advisory_reason:
+                threshold_explanation = (
+                    "Risk score is between 0.70 and 1.00. "
+                    "The pipeline is considered high risk, but the quality gate is operating in advisory mode "
+                    f"({advisory_reason}), so the ML gate warns instead of blocking."
+                )
+            else:
+                threshold_explanation = (
+                    "Risk score is between 0.70 and 1.00. "
+                    "The pipeline is considered high risk, but the quality gate is disabled, so only a warning is given."
+                )
 
     return {
         "risk_score": risk_score,
         "risk_level": risk_level,
         "action": action,
         "quality_gate_enabled": quality_gate_enabled,
-        "threshold_explanation": threshold_explanation
+        "threshold_explanation": threshold_explanation,
     }

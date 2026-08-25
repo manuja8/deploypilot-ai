@@ -53,5 +53,3 @@ for test_case in test_cases:
     print("Action:", result["action"])
     print("Quality Gate Enabled:", result["quality_gate_enabled"])
     print("Explanation:", result["threshold_explanation"])
-
-    #python -m scripts.test_quality_gate.py

@@ -64,6 +64,10 @@ class PredictionHistory(Base):
     quality_gate_action = Column(String(20))
     threshold_explanation = Column(Text)
 
+    gate_mode = Column(String(20))
+    cold_start = Column(Boolean)
+    meaningful_history_runs = Column(Integer)
+
     actual_result = Column(String(20))
 
     raw_log = Column(Text)

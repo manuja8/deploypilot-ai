@@ -51,5 +51,3 @@ for index, raw_log in enumerate(test_logs, start=1):
 
     print("CLEANED LOG:")
     print(clean_log(raw_log))
-
-# python -m scripts.test_log_preprocessor
