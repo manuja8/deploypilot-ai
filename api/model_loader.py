@@ -21,7 +21,6 @@ FAILURE_TYPE_CLASSIFIER_PATH = (
 def load_model_if_exists(model_path):
     """
     Load a joblib model if the file exists.
-    If the model is not trained yet, return None.
     """
 
     if model_path.exists():
@@ -33,9 +32,6 @@ def load_model_if_exists(model_path):
 def load_models():
     """
     Load all saved ML models.
-
-    During the current MVP stage, the .pkl files may not exist yet.
-    In that case, FastAPI will use fallback logic inside prediction_service.py.
     """
 
     failure_risk_model = load_model_if_exists(

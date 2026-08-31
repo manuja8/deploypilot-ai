@@ -5,8 +5,8 @@ import api from "../services/api";
 
 function Prediction() {
   const [formData, setFormData] = useState({
-    pipeline_id: "model_2_validation",
-    run_id: "validation_001",
+    pipeline_id: "DeployPilot_AI",
+    run_id: "manual_run_001",
     source: "MANUAL",
     ci_tool: "GitHub Actions",
     repository: "deploypilot-demo",
@@ -62,7 +62,7 @@ function Prediction() {
     } catch (error) {
       console.error(error);
 
-      setError("Prediction failed. Check the FastAPI backend.");
+      setError("Prediction failed. Invalid input value.");
     } finally {
       setLoading(false);
     }

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
 
 from api.database import Base
 
@@ -21,6 +21,13 @@ class PredictionHistory(Base):
     __tablename__ = "prediction_history"
 
     id = Column(Integer, primary_key=True)
+
+    u_id = Column(
+    Integer,
+    ForeignKey("users.id"),
+    nullable=True
+    )
+
 
     timestamp = Column(
         DateTime,

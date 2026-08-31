@@ -23,7 +23,7 @@ from api.models import User
 
 Base.metadata.create_all(bind=engine)
 
-# Safely add the role column to older databases.
+
 ensure_user_role_schema()
 
 

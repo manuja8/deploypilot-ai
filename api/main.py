@@ -16,6 +16,7 @@ from api.database import (
     Base,
     engine,
     ensure_prediction_history_gate_schema,
+    ensure_prediction_history_user_schema,
     ensure_user_role_schema,
     get_db,
 )
@@ -38,6 +39,8 @@ Base.metadata.create_all(
 )
 ensure_user_role_schema()
 ensure_prediction_history_gate_schema()
+ensure_prediction_history_user_schema()
+
 
 
 app = FastAPI(
@@ -50,11 +53,11 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
-        "http://127.0.0.1:5173"
+        "https://deploypilot-ai-web-2026.azurewebsites.net",
     ],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
 )
 
 PROJECT_ROOT = Path(

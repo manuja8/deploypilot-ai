@@ -8,10 +8,7 @@ def generate_recommendation(
     warnings=0,
     actual_result="",
 ):
-    """
-    Generate practical CI/CD recommendations based on the risk prediction,
-    actual CI result, classified failure type, logs, failed tests and warnings.
-    """
+
 
     try:
         risk_score = float(risk_score)
@@ -74,8 +71,8 @@ def generate_recommendation(
             ),
         }
 
-    if prediction == "PASS" and risk_score < 0.40:
-        return {
+    if (actual_result != "FAIL" and prediction == "PASS" and risk_score < 0.40): 
+        {
             "recommendation": (
                 "Pipeline risk is low. The run can continue normally."
             ),

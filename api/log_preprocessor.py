@@ -3,8 +3,7 @@ import re
 
 def clean_log(log_text):
     """
-    Clean noisy CI/CD logs before TF-IDF or failure type classification.
-    
+    Clean noisy CI/CD logs.
     """
 
     if log_text is None:
@@ -12,7 +11,7 @@ def clean_log(log_text):
 
     log_text = str(log_text).lower()
 
-    # Remove timestamps like 2026-07-01 10:44:21
+    # Remove timestamps
     log_text = re.sub(
         r"\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}",
         " ",
@@ -33,14 +32,14 @@ def clean_log(log_text):
         log_text
     )
 
-    # Remove Linux and Windows file paths
+    # Remove file paths
     log_text = re.sub(
         r"(\/[^\s]+)|([a-zA-Z]:\\[^\s]+)",
         " ",
         log_text
     )
 
-    # Remove hexadecimal values like 0x7ffee12
+    # Remove hexadecimal values
     log_text = re.sub(
         r"0x[a-f0-9]+",
         " ",
@@ -54,7 +53,7 @@ def clean_log(log_text):
         log_text
     )
 
-    # Remove long numeric IDs such as build IDs
+    # Remove long numeric ID
     log_text = re.sub(
         r"\b\d{5,}\b",
         " ",

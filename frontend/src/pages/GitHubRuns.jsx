@@ -41,7 +41,7 @@ function GitHubRuns() {
           <h1>GitHub Runs</h1>
 
           <p>
-            Live pipeline predictions, quality-gate decisions and
+            Live pipeline predictions, quality gate decisions and
             recommendations received from GitHub Actions.
           </p>
         </div>
@@ -137,10 +137,7 @@ function GitHubRuns() {
       </section>
 
       {selectedRun && (
-        <RunDetails
-          run={selectedRun}
-          onClose={() => setSelectedRun(null)}
-        />
+        <RunDetails run={selectedRun} onClose={() => setSelectedRun(null)} />
       )}
     </div>
   );
@@ -210,25 +207,16 @@ function RunDetails({ run, onClose }) {
               value={<StatusBadge value={run.risk_level} />}
             />
 
-            <DetailItem
-              label="Failure Type"
-              value={displayFailureType(run)}
-            />
+            <DetailItem label="Failure Type" value={displayFailureType(run)} />
 
             <DetailItem
               label="Quality Gate"
               value={<StatusBadge value={run.quality_gate_action} />}
             />
 
-            <DetailItem
-              label="Gate Mode"
-              value={displayGateMode(run)}
-            />
+            <DetailItem label="Gate Mode" value={displayGateMode(run)} />
 
-            <DetailItem
-              label="Cold Start"
-              value={displayColdStart(run)}
-            />
+            <DetailItem label="Cold Start" value={displayColdStart(run)} />
           </div>
 
           <section className="run-detail-section">
@@ -245,7 +233,7 @@ function RunDetails({ run, onClose }) {
                 label="Meaningful History Runs"
                 value={
                   run.gate_mode
-                    ? run.meaningful_history_runs ?? 0
+                    ? (run.meaningful_history_runs ?? 0)
                     : "Not recorded"
                 }
               />
@@ -253,10 +241,7 @@ function RunDetails({ run, onClose }) {
                 label="Previous Failure Rate Used"
                 value={formatRate(run.previous_failure_rate)}
               />
-              <ContextItem
-                label="Recorded"
-                value={formatDate(run.timestamp)}
-              />
+              <ContextItem label="Recorded" value={formatDate(run.timestamp)} />
             </div>
           </section>
 
@@ -424,9 +409,7 @@ function displayGateMode(run) {
     return "Not recorded";
   }
 
-  return run.gate_mode === "ADVISORY"
-    ? "ADVISORY - cold start"
-    : run.gate_mode;
+  return run.gate_mode === "ADVISORY" ? "ADVISORY - cold start" : run.gate_mode;
 }
 
 function displayColdStart(run) {

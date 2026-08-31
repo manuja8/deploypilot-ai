@@ -3,20 +3,6 @@ def evaluate_quality_gate(
     quality_gate_enabled=True,
     advisory_reason="",
 ):
-    """
-    Evaluate the CI/CD quality gate decision using the failure risk score.
-
-    Risk thresholds:
-    0.00 - 0.39 = LOW risk
-    0.40 - 0.69 = MEDIUM risk
-    0.70 - 1.00 = HIGH risk
-
-    Actions:
-    LOW    -> ALLOW
-    MEDIUM -> WARN
-    HIGH   -> BLOCK when the gate is enforcing
-    HIGH   -> WARN when the gate is advisory/disabled
-    """
 
     try:
         risk_score = float(risk_score)

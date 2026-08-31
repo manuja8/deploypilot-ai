@@ -41,16 +41,6 @@ class HistoryRepository:
         limit=10,
         exclude_run_id=None,
     ):
-        """
-        Return previous real GitHub CI runs for one repository.
-
-        A meaningful run must:
-        - come from the GitHub Actions integration; and
-        - report an actual CI result of PASS or FAIL.
-
-        DeployPilot's own ALLOW/WARN/BLOCK decision is deliberately not
-        used to decide whether the historical run itself failed.
-        """
 
         if not repository:
             return []
@@ -80,14 +70,6 @@ class HistoryRepository:
         limit=10,
         exclude_run_id=None,
     ):
-        """
-        Calculate the repository-specific historical failure rate.
-
-        Fewer than ``minimum_runs`` previous meaningful runs are treated as
-        cold start. During cold start the model receives a neutral historical
-        failure-rate value of 0.0 and the ML quality gate operates in advisory
-        mode. The other Model 1 features are still evaluated normally.
-        """
 
         runs = self.get_meaningful_repository_history(
             repository=repository,

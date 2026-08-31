@@ -37,7 +37,7 @@ failure_type_classifier = loaded_models["failure_type_classifier"]
 
 
 def predict_pipeline_risk(request_data):
-    """Predict CI/CD pipeline risk using the trained Model 1."""
+    """Predict CI/CD pipeline risk using the trained Model 1"""
 
     input_dict = request_data.dict()
 
@@ -117,12 +117,6 @@ def calculate_fallback_risk_score(input_dict):
 
 
 def classify_failure_type(raw_log, prediction, actual_result=None):
-    """
-    Classify a real CI failure log with Model 2.
-
-    A successful CI run has no failure type, even when Model 1 predicts
-    MEDIUM or HIGH future risk.
-    """
 
     cleaned_log = clean_log(raw_log)
     actual_result = str(actual_result or "").strip().upper()
@@ -130,7 +124,7 @@ def classify_failure_type(raw_log, prediction, actual_result=None):
     if actual_result == "PASS":
         return "None", cleaned_log
 
-    if not cleaned_log and prediction == "PASS":
+    if not cleaned_log:
         return "None", cleaned_log
 
     if failure_type_classifier is not None and cleaned_log:
@@ -142,7 +136,7 @@ def classify_failure_type(raw_log, prediction, actual_result=None):
 
 
 def classify_failure_type_fallback(cleaned_log, prediction):
-    if not cleaned_log and prediction == "PASS":
+    if not cleaned_log:
         return "None"
 
     if "assertionerror" in cleaned_log or "test" in cleaned_log:
@@ -182,13 +176,6 @@ def classify_failure_type_fallback(cleaned_log, prediction):
 
 
 def _get_repository_gate_context(request_data, database):
-    """
-    DeployPilot owns the cold-start decision for GitHub Actions requests.
-
-    - Fewer than 3 previous meaningful runs -> ADVISORY
-    - 3 or more previous meaningful runs -> ENFORCING
-    - Manual predictions preserve their existing quality-gate setting.
-    """
 
     source = str(request_data.source or "").upper()
 
@@ -235,12 +222,11 @@ def _get_repository_gate_context(request_data, database):
 
 
 def make_prediction(request_data, database):
-    """Main prediction service used by FastAPI."""
+    """Main prediction service used by FastAPI"""
 
     gate_context = _get_repository_gate_context(request_data, database)
 
-    # For live GitHub requests, Model 1 uses repository history calculated by
-    # DeployPilot itself rather than trusting a client-supplied failure rate.
+
     if str(request_data.source or "").upper() == "GITHUB_ACTIONS":
         request_data.previous_failure_rate = gate_context["previous_failure_rate"]
 

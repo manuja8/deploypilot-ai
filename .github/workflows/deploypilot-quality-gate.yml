@@ -3,15 +3,28 @@ name: DeployPilot AI Quality Gate
 on:
   workflow_dispatch:
     inputs:
-      risk_scenario:
-        description: "Risk validation scenario"
+      test_scenario:
+        description: "DeployPilot validation scenario"
         required: true
         default: "normal"
         type: choice
         options:
           - normal
+          - low
           - medium
           - high
+          - cold_start
+          - no_log_high
+          - error_build
+          - error_configuration
+          - error_dependency
+          - error_deployment
+          - error_network
+          - error_permission
+          - error_resource
+          - error_security
+          - error_test
+          - error_timeout
 
   push:
     branches:
@@ -88,6 +101,9 @@ jobs:
         run: |
           START_TIME=$(date +%s)
 
+          # The current project workflow does not run a project-specific test suite.
+          # Keep this at zero for normal runs; failure-type scenarios below inject
+          # controlled failure logs for classifier validation.
           TESTS_FAILED=0
 
           END_TIME=$(date +%s)
@@ -123,7 +139,6 @@ jobs:
 
           total = values["MemTotal"]
           available = values["MemAvailable"]
-
           used_mb = (total - available) / 1024
 
           print(round(used_mb, 2))
@@ -136,7 +151,27 @@ jobs:
           echo "CPU usage: $CPU_USAGE%"
           echo "Memory usage: $MEMORY_USAGE MB"
 
+      - name: Verify deployed models
+        shell: bash
+        env:
+          DEPLOYPILOT_API_URL: https://deploypilot-ai-api-korea-2026.azurewebsites.net
+        run: |
+          curl --fail --silent --show-error \
+            "$DEPLOYPILOT_API_URL/model-status" \
+            --output deploypilot-model-status.json
+
+          jq . deploypilot-model-status.json
+
+          RISK_MODEL=$(jq -r '.failure_risk_model_loaded' deploypilot-model-status.json)
+          TYPE_MODEL=$(jq -r '.failure_type_classifier_loaded' deploypilot-model-status.json)
+
+          if [ "$RISK_MODEL" != "true" ] || [ "$TYPE_MODEL" != "true" ]; then
+            echo "::error::One or more trained DeployPilot models are not loaded."
+            exit 1
+          fi
+
       - name: Create DeployPilot prediction request
+        id: request
         shell: bash
         env:
           PIPELINE_ID: ${{ github.workflow }}
@@ -144,7 +179,7 @@ jobs:
           REPOSITORY: ${{ github.repository }}
           BRANCH: ${{ github.ref_name }}
 
-          RISK_SCENARIO: ${{ github.event_name == 'workflow_dispatch' && inputs.risk_scenario || 'normal' }}
+          TEST_SCENARIO: ${{ github.event_name == 'workflow_dispatch' && inputs.test_scenario || 'normal' }}
 
           COMMIT_SIZE: ${{ steps.metadata.outputs.commit_size }}
           FILES_CHANGED: ${{ steps.metadata.outputs.files_changed }}
@@ -163,115 +198,240 @@ jobs:
           import json
           import os
 
-          error_log = ""
+          scenario = os.environ.get("TEST_SCENARIO", "normal")
+          run_id = os.environ["RUN_ID"]
+          real_repository = os.environ["REPOSITORY"]
 
-          if os.environ.get("BUILD_EXIT_CODE") != "0":
+          build_failed = os.environ.get("BUILD_EXIT_CODE") != "0"
+          tests_failed = int(os.environ.get("TESTS_FAILED", "0"))
+
+          error_log = ""
+          if build_failed:
               try:
                   with open("build.log", "r", errors="ignore") as file:
                       error_log = file.read()[-5000:]
               except FileNotFoundError:
                   pass
 
+          actual_result = "FAIL" if (build_failed or tests_failed > 0) else "PASS"
+
           payload = {
               "pipeline_id": os.environ["PIPELINE_ID"],
-              "run_id": os.environ["RUN_ID"],
+              "run_id": run_id,
               "ci_tool": "GitHub Actions",
-              "repository": os.environ["REPOSITORY"],
+              "repository": real_repository,
               "branch": os.environ["BRANCH"],
-
-              "commit_size": int(
-                  os.environ.get("COMMIT_SIZE", "0")
-              ),
-
-              "files_changed": int(
-                  os.environ.get("FILES_CHANGED", "0")
-              ),
-
+              "commit_size": int(os.environ.get("COMMIT_SIZE", "0")),
+              "files_changed": int(os.environ.get("FILES_CHANGED", "0")),
               "warnings": 0,
-
-              "tests_failed": int(
-                  os.environ.get("TESTS_FAILED", "0")
-              ),
-
-              "build_duration_sec": float(
-                  os.environ.get("BUILD_DURATION", "0")
-              ),
-
-              "test_duration_sec": float(
-                  os.environ.get("TEST_DURATION", "0")
-              ),
-
+              "tests_failed": tests_failed,
+              "build_duration_sec": float(os.environ.get("BUILD_DURATION", "0")),
+              "test_duration_sec": float(os.environ.get("TEST_DURATION", "0")),
               "deploy_duration_sec": 0,
-
-              "cpu_usage_pct": float(
-                  os.environ.get("CPU_USAGE", "0")
-              ),
-
-              "memory_usage_mb": float(
-                  os.environ.get("MEMORY_USAGE", "0")
-              ),
-
+              "cpu_usage_pct": float(os.environ.get("CPU_USAGE", "0")),
+              "memory_usage_mb": float(os.environ.get("MEMORY_USAGE", "0")),
               "retry_count": 0,
               "previous_failure_rate": 0,
-
               "language": "Python",
               "os": "ubuntu-latest",
               "cloud_provider": "GitHub Hosted",
-
               "error_log": error_log,
               "quality_gate_enabled": True,
-              "actual_result": "PENDING"
+              "actual_result": actual_result,
           }
 
-          scenario = os.environ.get(
-              "RISK_SCENARIO",
-              "normal"
-          )
+          low_values = {
+              "commit_size": 3,
+              "files_changed": 1,
+              "warnings": 0,
+              "tests_failed": 0,
+              "build_duration_sec": 10,
+              "test_duration_sec": 5,
+              "deploy_duration_sec": 0,
+              "cpu_usage_pct": 10,
+              "memory_usage_mb": 500,
+              "retry_count": 0,
+              "branch": "dev",
+              "language": "Python",
+              "cloud_provider": "GitHub Hosted",
+          }
 
-          if scenario == "medium":
-              payload.update({
-                  "commit_size": 21,
-                  "files_changed": 6,
-                  "warnings": 7,
-                  "tests_failed": 0,
-                  "previous_failure_rate": 0.25,
-                  "build_duration_sec": 245,
-                  "test_duration_sec": 120,
-                  "deploy_duration_sec": 70,
-                  "cpu_usage_pct": 50,
-                  "memory_usage_mb": 3000,
-                  "retry_count": 1,
-                  "cloud_provider": "AWS"
-              })
+          medium_values = {
+              "commit_size": 21,
+              "files_changed": 6,
+              "warnings": 7,
+              "tests_failed": 0,
+              "build_duration_sec": 245,
+              "test_duration_sec": 120,
+              "deploy_duration_sec": 70,
+              "cpu_usage_pct": 50,
+              "memory_usage_mb": 3000,
+              "retry_count": 1,
+              "branch": "dev",
+              "language": "Python",
+              "cloud_provider": "AWS",
+          }
+
+          high_values = {
+              "commit_size": 69,
+              "files_changed": 3,
+              "warnings": 2,
+              "tests_failed": 0,
+              "build_duration_sec": 1850,
+              "test_duration_sec": 708,
+              "deploy_duration_sec": 1187,
+              "cpu_usage_pct": 70.08,
+              "memory_usage_mb": 18604,
+              "retry_count": 5,
+              "branch": "main",
+              "language": "Go",
+              "cloud_provider": "AWS",
+          }
+
+          failure_logs = {
+              "error_build": (
+                  "Build failed compiler error syntax error during application "
+                  "build artifact generation"
+              ),
+              "error_configuration": (
+                  "Configuration error invalid yaml missing environment variable "
+                  "DATABASE_URL configuration value"
+              ),
+              "error_dependency": (
+                  "ModuleNotFoundError No module named requests dependency package "
+                  "could not be installed"
+              ),
+              "error_deployment": (
+                  "Deployment failed helm upgrade failed rollout deployment target "
+                  "health check failed"
+              ),
+              "error_network": (
+                  "Network connection refused DNS resolution failed unable to connect "
+                  "to remote server"
+              ),
+              "error_permission": (
+                  "Permission denied access forbidden token is not authorized to access secret"
+              ),
+              "error_resource": (
+                  "Out of memory resource exhausted CPU limit exceeded runner memory insufficient"
+              ),
+              "error_security": (
+                  "Security scan failed critical vulnerability CVE detected dependency vulnerability"
+              ),
+              "error_test": (
+                  "Test failed AssertionError expected value did not match automated test suite failure"
+              ),
+              "error_timeout": (
+                  "Timeout reached operation timed out while waiting for service job exceeded time limit"
+              ),
+          }
+
+          # Keep risk validation deterministic by isolating test history.
+          if scenario == "low":
+              payload.update(low_values)
+              payload["repository"] = f"{real_repository}__viva_low_{run_id}"
+              payload["actual_result"] = "PASS"
+              payload["error_log"] = ""
+
+          elif scenario == "medium":
+              payload.update(medium_values)
+              payload["repository"] = f"{real_repository}__viva_medium_{run_id}"
+              payload["actual_result"] = "PASS"
+              payload["error_log"] = ""
 
           elif scenario == "high":
+              payload.update(high_values)
+              # A stable repository name is used because this scenario is seeded
+              # with three meaningful PASS runs in the next step.
+              payload["repository"] = f"{real_repository}__viva_enforcing"
+              payload["actual_result"] = "PASS"
+              payload["error_log"] = ""
+
+          elif scenario == "cold_start":
+              payload.update(high_values)
+              payload["repository"] = f"{real_repository}__viva_cold_{run_id}"
+              payload["actual_result"] = "PASS"
+              payload["error_log"] = ""
+
+          elif scenario == "no_log_high":
+              payload.update(high_values)
+              payload["repository"] = f"{real_repository}__viva_nolog_{run_id}"
+              payload["actual_result"] = "PENDING"
+              payload["error_log"] = ""
+
+          elif scenario in failure_logs:
+              payload.update(high_values)
+              payload["repository"] = f"{real_repository}__viva_{scenario}_{run_id}"
+              payload["actual_result"] = "FAIL"
+              payload["error_log"] = failure_logs[scenario]
+
+          print("Selected test scenario:", scenario)
+          print("Repository key:", payload["repository"])
+          print("Actual CI result:", payload["actual_result"])
+
+          with open("deploypilot-request.json", "w") as file:
+              json.dump(payload, file, indent=2)
+          PY
+
+      - name: Seed meaningful history for enforcing HIGH scenario
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.test_scenario == 'high' }}
+        shell: bash
+        env:
+          DEPLOYPILOT_API_KEY: ${{ secrets.DEPLOYPILOT_API_KEY }}
+          DEPLOYPILOT_API_URL: https://deploypilot-ai-api-korea-2026.azurewebsites.net
+        run: |
+          python - <<'PY'
+          import json
+
+          with open("deploypilot-request.json", "r") as file:
+              main_payload = json.load(file)
+
+          for index in range(1, 4):
+              payload = dict(main_payload)
               payload.update({
-                  "commit_size": 69,
-                  "files_changed": 3,
-                  "warnings": 2,
+                  "pipeline_id": "DeployPilot Viva History Seed",
+                  "run_id": f"{main_payload['run_id']}-seed-{index}",
+                  "commit_size": 3,
+                  "files_changed": 1,
+                  "warnings": 0,
                   "tests_failed": 0,
-                  "previous_failure_rate": 0.781,
-                  "build_duration_sec": 1850,
-                  "test_duration_sec": 708,
-                  "deploy_duration_sec": 1187,
-                  "cpu_usage_pct": 70.08,
-                  "memory_usage_mb": 18604,
-                  "retry_count": 5,
-                  "branch": "main",
-                  "language": "Go",
-                  "cloud_provider": "AWS"
+                  "build_duration_sec": 10,
+                  "test_duration_sec": 5,
+                  "deploy_duration_sec": 0,
+                  "cpu_usage_pct": 10,
+                  "memory_usage_mb": 500,
+                  "retry_count": 0,
+                  "branch": "dev",
+                  "language": "Python",
+                  "cloud_provider": "GitHub Hosted",
+                  "error_log": "",
+                  "actual_result": "PASS",
               })
 
-          print("Selected risk scenario:", scenario)
-
-          with open(
-              "deploypilot-request.json",
-              "w"
-          ) as file:
-              json.dump(payload, file)
-
-          print("DeployPilot prediction request created.")
+              with open(f"seed-{index}.json", "w") as file:
+                  json.dump(payload, file)
           PY
+
+          for i in 1 2 3; do
+            STATUS=$(curl \
+              --silent \
+              --show-error \
+              --output "seed-response-$i.json" \
+              --write-out "%{http_code}" \
+              --request POST \
+              "$DEPLOYPILOT_API_URL/github/predict" \
+              --header "Content-Type: application/json" \
+              --header "X-API-Key: $DEPLOYPILOT_API_KEY" \
+              --data @"seed-$i.json")
+
+            if [ "$STATUS" != "200" ]; then
+              echo "History seed $i failed with HTTP $STATUS"
+              cat "seed-response-$i.json"
+              exit 1
+            fi
+          done
+
+          echo "Three meaningful PASS runs are available for the enforcing HIGH test."
 
       - name: Call DeployPilot AI
         id: deploypilot
@@ -279,7 +439,6 @@ jobs:
         env:
           DEPLOYPILOT_API_KEY: ${{ secrets.DEPLOYPILOT_API_KEY }}
           DEPLOYPILOT_API_URL: https://deploypilot-ai-api-korea-2026.azurewebsites.net
-
         run: |
           HTTP_STATUS=$(curl \
             --silent \
@@ -306,29 +465,60 @@ jobs:
       - name: Apply DeployPilot quality gate
         shell: bash
         run: |
+          SCENARIO="${{ github.event_name == 'workflow_dispatch' && inputs.test_scenario || 'normal' }}"
+          REAL_BUILD_EXIT="${{ steps.build.outputs.exit_code }}"
+          REAL_TESTS_FAILED="${{ steps.tests.outputs.tests_failed }}"
+          ACTUAL_RESULT=$(jq -r '.actual_result // "UNKNOWN"' deploypilot-request.json)
           ACTION=$(jq -r '.quality_gate_action' deploypilot-response.json)
           RISK_LEVEL=$(jq -r '.risk_level' deploypilot-response.json)
           RISK_SCORE=$(jq -r '.risk_score' deploypilot-response.json)
           PREDICTION=$(jq -r '.prediction' deploypilot-response.json)
           FAILURE_TYPE=$(jq -r '.failure_type // "None"' deploypilot-response.json)
+          GATE_MODE=$(jq -r '.gate_mode' deploypilot-response.json)
+          COLD_START=$(jq -r '.cold_start' deploypilot-response.json)
+          HISTORY_RUNS=$(jq -r '.meaningful_history_runs' deploypilot-response.json)
 
+          echo "Scenario: $SCENARIO"
+          echo "Actual CI result: $ACTUAL_RESULT"
           echo "Prediction: $PREDICTION"
           echo "Risk score: $RISK_SCORE"
           echo "Risk level: $RISK_LEVEL"
           echo "Failure type: $FAILURE_TYPE"
           echo "Quality gate action: $ACTION"
+          echo "Gate mode: $GATE_MODE"
+          echo "Cold start: $COLD_START"
+          echo "Meaningful history runs: $HISTORY_RUNS"
 
           {
             echo "## DeployPilot AI Result"
             echo ""
             echo "| Result | Value |"
             echo "|---|---|"
+            echo "| Scenario | $SCENARIO |"
+            echo "| Actual CI Result | $ACTUAL_RESULT |"
             echo "| Prediction | $PREDICTION |"
             echo "| Risk Score | $RISK_SCORE |"
             echo "| Risk Level | $RISK_LEVEL |"
             echo "| Failure Type | $FAILURE_TYPE |"
             echo "| Quality Gate | $ACTION |"
+            echo "| Gate Mode | $GATE_MODE |"
+            echo "| Cold Start | $COLD_START |"
+            echo "| Meaningful History Runs | $HISTORY_RUNS |"
           } >> "$GITHUB_STEP_SUMMARY"
+
+          # Real CI validation remains authoritative even when a manual
+          # validation scenario uses simulated prediction inputs.
+          if [ "$REAL_BUILD_EXIT" != "0" ] || [ "$REAL_TESTS_FAILED" -gt 0 ]; then
+            echo "::error::The real CI validation failed before the DeployPilot decision."
+            exit 1
+          fi
+
+          # Controlled failure-type scenarios deliberately set actual_result=FAIL
+          # so the end-to-end workflow also proves deterministic failure handling.
+          if [ "$ACTUAL_RESULT" = "FAIL" ]; then
+            echo "::error::The actual CI validation result is FAIL."
+            exit 1
+          fi
 
           if [ "$ACTION" = "BLOCK" ]; then
             echo "::error::DeployPilot AI blocked this pipeline."
